@@ -782,6 +782,7 @@ if(WITH_TURBOJPEG)
 
     if(WITH_TOOLS)
       add_executable(tjbench src/tjbench.c src/tjutil.c)
+      target_sources(tjbench PRIVATE spike_glue.c) # *PBH*: Added
       target_link_libraries(tjbench turbojpeg)
       if(UNIX)
         target_link_libraries(tjbench m)
