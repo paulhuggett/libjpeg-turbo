@@ -1,3 +1,14 @@
+Building and Running
+=======
+
+```bash
+mkdir -p build
+rm -rf build/*
+cmake -S . -B build -D CMAKE_BUILD_TYPE=Release -D CMAKE_TOOLCHAIN_FILE=./clang21.cmake
+make -C build -j $(nproc) tjbench
+spike --isa=rv32imc_Zicsr_Zicntr -m0x2000:0x100000,0x80000000:0x1000000 build/tjbench test.jpeg
+```
+
 Background
 ==========
 
