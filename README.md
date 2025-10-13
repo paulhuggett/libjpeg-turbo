@@ -1,4 +1,4 @@
-Building and Running
+Building and Running with RISC-V Spike
 =======
 
 ```bash
