@@ -19,10 +19,8 @@ enum {
   sys_close = 57,
   sys_lseek = 62,
   sys_openat = 56,
-  //  sys_gettimeofday = 169,
   sys_getmainvars = 2011,
 };
-
 
 enum { channel_stdin = 0, channel_stdout = 1, channel_stderr = 2 };
 
@@ -166,212 +164,6 @@ int sys_semihost_get_cmdline(char *buf, size_t size) {
 
 
 
-
-#if 0
-#include <stdint.h>
-
-// RISC-V CSR definitions
-#define CSR_MSTATUS  0x300
-#define CSR_MEPC     0x341
-#define CSR_MCAUSE   0x342
-#define CSR_MTVAL    0x343
-
-// Exception causes
-#define CAUSE_LOAD_ACCESS_FAULT  5
-
-// CSR read/write macros
-#define read_csr(reg) ({ \
-    unsigned long __tmp; \
-    asm volatile ("csrr %0, " #reg : "=r"(__tmp)); \
-    __tmp; })
-
-#define write_csr(reg, val) ({ \
-    asm volatile ("csrw " #reg ", %0" :: "r"(val)); })
-
-// Convert number to hex string
-static void uint_to_hex(uint32_t val, char *buf) {
-  static char const hex[] = "0123456789abcdef";
-  buf[0] = '0';
-  buf[1] = 'x';
-  for (int i = 7; i >= 0; i--) {
-    buf[2 + (7 - i)] = hex[(val >> (i * 4)) & 0xF];
-  }
-  buf[10] = '\0';
-}
-
-static size_t writestr(char const *c, FILE *file) {
-  (void)file;
-  size_t len = strlen(c);
-  syscall(sys_write, stdout_channel, (uintptr_t)c, (uintptr_t)len, 0, 0, 0, 0);
-  return len;
-}
-
-static void writestr_hex(char const *msg, uint32_t val) {
-  char hex_buf[11];
-  writestr(msg, stderr);
-  uint_to_hex(val, hex_buf);
-  writestr(hex_buf, stderr);
-  writec('\n', stderr);
-}
-
-// Trap handler function
-void handle_load_access_fault(void) {
-  uint32_t mepc = read_csr(mepc);
-  uint32_t mtval = read_csr(mtval);
-
-  writestr("\n*** LOAD ACCESS FAULT ***\n", stderr);
-  writestr_hex("Faulting address: ", mtval);
-  writestr_hex("Faulting PC: ", mepc);
-  writestr("Program terminated.\n", stderr);
-  
-  // Exit with error code 1
-  _exit(1);
-}
-
-// Main trap vector
-void trap_handler(void) {
-  uint32_t mcause = read_csr(mcause);
-  uint32_t cause_code = mcause & 0x7FFFFFFF;
-  
-  if (cause_code == CAUSE_LOAD_ACCESS_FAULT) {
-    handle_load_access_fault();
-  } else {
-    // Handle other exceptions
-    writestr("\n*** UNHANDLED EXCEPTION ***\n", stderr);
-    writestr_hex("mcause: ", mcause);
-    _exit(1);
-  }
-}
-
-// Trap vector entry point (must be aligned to 4 bytes)
-__attribute__((naked, aligned(4)))
-void trap_entry() {
-    asm volatile (
-        // Save context (RV32 uses sw/lw and 128 byte frame)
-        "addi sp, sp, -128\n"
-        "sw x1,  0(sp)\n"
-        "sw x2,  4(sp)\n"
-        "sw x3,  8(sp)\n"
-        "sw x4,  12(sp)\n"
-        "sw x5,  16(sp)\n"
-        "sw x6,  20(sp)\n"
-        "sw x7,  24(sp)\n"
-        "sw x8,  28(sp)\n"
-        "sw x9,  32(sp)\n"
-        "sw x10, 36(sp)\n"
-        "sw x11, 40(sp)\n"
-        "sw x12, 44(sp)\n"
-        "sw x13, 48(sp)\n"
-        "sw x14, 52(sp)\n"
-        "sw x15, 56(sp)\n"
-        "sw x16, 60(sp)\n"
-        "sw x17, 64(sp)\n"
-        "sw x18, 68(sp)\n"
-        "sw x19, 72(sp)\n"
-        "sw x20, 76(sp)\n"
-        "sw x21, 80(sp)\n"
-        "sw x22, 84(sp)\n"
-        "sw x23, 88(sp)\n"
-        "sw x24, 92(sp)\n"
-        "sw x25, 96(sp)\n"
-        "sw x26, 100(sp)\n"
-        "sw x27, 104(sp)\n"
-        "sw x28, 108(sp)\n"
-        "sw x29, 112(sp)\n"
-        "sw x30, 116(sp)\n"
-        "sw x31, 120(sp)\n"
-        
-        // Call C handler
-        "call trap_handler\n"
-        
-        // Restore context
-        "lw x1,  0(sp)\n"
-        "lw x2,  4(sp)\n"
-        "lw x3,  8(sp)\n"
-        "lw x4,  12(sp)\n"
-        "lw x5,  16(sp)\n"
-        "lw x6,  20(sp)\n"
-        "lw x7,  24(sp)\n"
-        "lw x8,  28(sp)\n"
-        "lw x9,  32(sp)\n"
-        "lw x10, 36(sp)\n"
-        "lw x11, 40(sp)\n"
-        "lw x12, 44(sp)\n"
-        "lw x13, 48(sp)\n"
-        "lw x14, 52(sp)\n"
-        "lw x15, 56(sp)\n"
-        "lw x16, 60(sp)\n"
-        "lw x17, 64(sp)\n"
-        "lw x18, 68(sp)\n"
-        "lw x19, 72(sp)\n"
-        "lw x20, 76(sp)\n"
-        "lw x21, 80(sp)\n"
-        "lw x22, 84(sp)\n"
-        "lw x23, 88(sp)\n"
-        "lw x24, 92(sp)\n"
-        "lw x25, 96(sp)\n"
-        "lw x26, 100(sp)\n"
-        "lw x27, 104(sp)\n"
-        "lw x28, 108(sp)\n"
-        "lw x29, 112(sp)\n"
-        "lw x30, 116(sp)\n"
-        "lw x31, 120(sp)\n"
-        "addi sp, sp, 128\n"
-        
-        // Return from trap
-        "mret\n"
-    );
-}
-
-// Initialize trap vector
-void init_trap_handler() {
-  // Set mtvec to trap_entry (direct mode)
-  uint32_t mtvec_val = (uint32_t)(uintptr_t)trap_entry;
-  write_csr(mtvec, mtvec_val);
-}
-
-#endif
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#if 0
-int gettimeofday(long* loc)
-{
-  //syscall(sys_gettimeofday, 0, 0, 0, 0, 0, 0, 0);
-  *loc = 0;
-  return 0;
-}
-#endif
-
-
 typedef struct file {
   int kfd; // file descriptor on the host side of the HTIF
   unsigned refcnt;
@@ -405,29 +197,6 @@ static file_t* file_get_free() {
   }
   return nullptr;
 }
-
-#if 0
-int file_dup3(file_t* f, int newfd) {
-  if (newfd < 0 || newfd >= MAX_FDS) {
-    return -1;
-  }
-  if (atomic_cas(&fds[newfd], 0, f) == 0) {
-    file_incref(f);
-    return newfd;
-  }
-  return -1;
-}
-void file_init() {
-  // create stdin, stdout, stderr and FDs 0-2
-  for (int i = 0; i < 3; i++) {
-    file_t* f = file_get_free();
-    f->kfd = i;
-    file_dup(f);
-  }
-}
-#endif
-
-
 
 // Given a file_t, returns a new file descriptor.
 int file_dup(file_t* f) {
@@ -491,7 +260,6 @@ file_t* file_openat(int dirfd, char const * fn, int flags, int mode) {
     f->kfd = ret;
     return f;
   }
-
   return ERR_PTR(ret);
 }
 
@@ -513,7 +281,7 @@ int open(char const* name, int flags, ...) {
   if (IS_ERR_VALUE(file)) {
     return PTR_ERR(file);
   }
-  
+
   int fd = file_dup(file);
   file_decref(file); // counteract file_dup's file_incref
   if (fd < 0) {
@@ -564,10 +332,6 @@ int close(int fd) {
   return syscall(sys_close, f->kfd, 0, 0, 0, 0, 0, 0);
 }
 
-
-
-
-
 // Read the RISC-V time CSR (cycle counter)
 static inline uint64_t read_time(void) {
   // For RV32, need to read timeh and time with proper synchronization
@@ -589,7 +353,7 @@ static uintptr_t sys_semihost_tickfreq() {
   return 10000000ULL;
 }
 uintptr_t sys_semihost_time(void) {
-  return 0;//sys_semihost(SYS_TIME, 0);
+  return 0;
 }
 
 int gettimeofday(struct timeval *restrict tv, void *restrict tz) {
@@ -614,60 +378,3 @@ int gettimeofday(struct timeval *restrict tv, void *restrict tz) {
   tv->tv_usec = (suseconds_t) ((ticks % tick_freq) * 1000000 / tick_freq);
   return 0;
 }
-
-
-
-
-
-#if 0
-// Time structure definitions
-struct timeval {
-    int64_t tv_sec;   // seconds
-    int64_t tv_usec;  // microseconds
-};
-
-struct timezone {
-    int tz_minuteswest; // minutes west of Greenwich
-    int tz_dsttime;     // type of DST correction
-};
-
-
-// RISC-V timebase frequency (typically 10 MHz, adjust for your platform)
-#ifndef TIMEBASE_FREQ
-#define TIMEBASE_FREQ 10000000ULL
-#endif
-
-// Epoch offset (set when system initializes)
-static int64_t epoch_offset_sec = 0;
-
-
-// Set the epoch offset (call this during system initialization)
-void set_epoch_offset(int64_t seconds_since_epoch) {
-    epoch_offset_sec = seconds_since_epoch;
-}
-
-// RISC-V implementation of gettimeofday
-int gettimeofday(struct timeval *restrict tv, struct timezone *restrict tz) {
-  stdout_writestr("gettimeofday\n");
-    if (tv == nullptr) {
-        return -1; // EFAULT equivalent
-    }
-
-    // Read the time counter
-    uint64_t ticks = read_time();
-    
-    // Convert ticks to seconds and microseconds
-    uint64_t total_usec = (ticks * 1000000ULL) / TIMEBASE_FREQ;
-    
-    tv->tv_sec = epoch_offset_sec + (int64_t)(total_usec / 1000000ULL);
-    tv->tv_usec = (int64_t)(total_usec % 1000000ULL);
-    
-    // Handle timezone if requested (typically deprecated and unused)
-    if (tz != nullptr) {
-        tz->tz_minuteswest = 0;
-        tz->tz_dsttime = 0;
-    }
-    
-    return 0;
-}
-#endif
